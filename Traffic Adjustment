@@ -1,0 +1,254 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use IEEE.NUMERIC_STD.ALL;
+
+entity TLFSM is
+ Port (clk,resetn,pulse,flash: in STD_LOGIC;
+  	A_gt_B, B_gt_A, A_eq_B: in std_logic; -- comparator outputs
+  	 
+            NSRRC : OUT STD_LOGIC;
+            NSRYC : OUT STD_LOGIC;
+            NSRGC : OUT STD_LOGIC;
+            NSRYA : OUT STD_LOGIC;
+            NSRGA : OUT STD_LOGIC;
+            --Straight
+            NSSRC : OUT STD_LOGIC;
+            NSSYC : OUT STD_LOGIC;
+            NSSGC : OUT STD_LOGIC;
+            --Left
+            NSLRS : OUT STD_LOGIC;
+            NSLYS : OUT STD_LOGIC;
+            NSLYF : OUT STD_LOGIC;
+            NSLGS : OUT STD_LOGIC;
+            --East West Bound
+                        --Right
+            EWRRC : OUT STD_LOGIC;
+            EWRYC : OUT STD_LOGIC;
+            EWRGC : OUT STD_LOGIC;
+            EWRYA : OUT STD_LOGIC;
+            EWRGA : OUT STD_LOGIC;
+            --Straight
+            EWSRC : OUT STD_LOGIC;
+            EWSYC : OUT STD_LOGIC;
+            EWSGC : OUT STD_LOGIC;
+            --Left
+            EWLRS : OUT STD_LOGIC;
+            EWLYS : OUT STD_LOGIC;
+            EWLYF : OUT STD_LOGIC;
+            EWLGS : OUT STD_LOGIC;
+            
+            --TIMER TRIGGERS
+            NSTEN : OUT STD_LOGIC;
+            NSFTN : OUT STD_LOGIC;
+            EWTEN : OUT STD_LOGIC;
+            EWFTN : OUT STD_LOGIC
+   	);
+end TLFSM;
+
+architecture Behavioral of TLFSM is
+
+type state_t is (S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12);
+signal state, nextState: state_t;
+signal timeLeft, delay: integer range 0 to 256 := 0;
+signal nsDelay, ewDelay: integer range 0 to 256 := 0;
+signal stateChange: std_logic;
+
+begin
+
+state_transitions: process (pulse)
+begin
+--10 States
+    
+	if (pulse'event and pulse = '1') then -- resets all signals to zero and starts back at beginning state
+	   if (resetn = '0') then
+    	   state <= S1;
+    	   stateChange <= '1';
+       end if;
+	   if (timeLeft > 0) then
+	       timeLeft <= timeLeft - 1; -- decrements the delay time
+	   else
+	       state <= nextState;
+	       stateChange <= '1';
+	   end if;
+	   	   
+	   --if (stateChange = '1') then
+	   --stateChange <= '0'; 
+
+	        
+            if (A_gt_B = '1') then -- A greater than B case
+                nsDelay <= 15;
+                ewDelay <= 10;
+            
+                NSFTN <= '1'; -- active delay pin to arduino controls
+                EWTEN <= '1';
+            
+            else if (B_gt_A = '1') then -- B greater than A case
+                nsDelay <= 10;
+                ewDelay <= 15; 
+            
+                NSTEN <= '1'; -- active delay pin to arduino controls
+                EWFTN <= '1';
+            
+            else -- Both are equal case
+                nsDelay <= 10;
+                ewDelay <= 10; 
+            
+                NSTEN <= '1'; -- active delay pin to arduino controls
+                EWTEN <= '1';
+            end if;    
+        end if;  
+    
+             --PLEASE NOTE, THIS STATE WILL BE ANOTHER SIGNAL BROUGHT IN BY THE COMPARATOR. THIS DELAY IS 
+        	--VARIABLE ON PURPOSE SO THAT EACH DIRECTION CAN GET A DIFFERENT DELAY
+        case state is
+        	when S1 => -- NS GREEN 
+        	    delay <= nsDelay;
+            	nextState <= s2;
+        	when S2 =>
+        	    delay <= 5;
+            	nextState <= S3;
+        	when S3 =>
+        	    delay <= 3;
+            	nextState <= S4;
+        	when S4 => -- NS GREEN TURN
+        	    delay <= ewDelay;
+            	nextState <= s5;
+        	when S5 =>
+        	    delay <= 5;
+            	nextState <= s6;
+        	when S6 =>
+        	    delay <= 3;
+            	nextState <= s7;
+        	when S7 => -- EW Green
+        	    delay <= nsDelay;
+            	nextState <= s8;
+        	when S8 =>
+        	    delay <= 5;
+            	nextState <= s9;
+        	when S9 =>
+        	    delay <= 3;
+            	nextState <= s10;
+        	when S10 => -- EW GREEN TURN
+        	    delay <= ewDelay;
+            	nextState <= s11;
+        	when s11 =>
+        	    delay <= 5;
+            	nextState <= s12;
+        	when others =>
+        	    delay <= 3;
+            	nextState <= s1;
+     	end case;
+    end if;
+end process;
+
+
+state_logic : process (state)
+
+begin   
+
+            NSRRC <= '0';
+            NSRYC <= '0';
+            NSRGC <= '0';
+            NSRYA <= '0';
+            NSRGA <= '0';
+            --Straight
+            NSSRC <= '0';
+            NSSYC <= '0';
+            NSSGC <= '0';
+            --Left
+            NSLRS <= '0';
+            NSLYS <= '0';
+            NSLYF <= '0';
+            NSLGS <= '0';
+            --East West Bound
+            --Right
+            EWRRC <= '0';
+            EWRYC <= '0';
+            EWRGC <= '0';
+            EWRYA <= '0';
+            EWRGA <= '0';
+            --Straight
+            EWSRC <= '0';
+            EWSYC <= '0';
+            EWSGC <= '0';
+            --Left
+            EWLRS <= '0';
+            EWLYS <= '0';
+            EWLYF <= '0';
+            EWLGS <= '0';
+            --TIMER TRIGGERS
+            NSTEN <= '0';
+            NSFTN <= '0';
+            EWTEN <= '0';
+            EWFTN <= '0';
+    
+	case state is
+    	when S1 =>
+          NSSGC <= '1';
+          NSLYF <= flash;
+          EWLRS <= '1';
+          EWSRC <= '1';
+    	when S2 =>
+    	  NSLYS <= '1';
+          NSSYC <= '1';
+          EWLRS <= '1';
+          EWSRC <= '1';
+    	when S3 =>
+          NSLRS <= '1';
+          NSSRC <= '1';
+          EWLRS <= '1';
+          EWSRC <= '1';
+    	when S4 =>
+          NSLGS <= '1';
+          NSSRC <= '1';
+          EWRGA <= '1';
+          EWSRC <= '1';
+          EWLRS <= '1';
+    	when S5 =>
+          NSLYS <= '1';
+          NSSRC <= '1';
+          EWRYA <= '1';
+          EWSRC <= '1';
+          EWLRS <= '1';
+    	when S6 =>
+          NSLRS <= '1';
+          NSSRC <= '1';
+          EWLRS <= '1';
+          EWSRC <= '1';
+    	when S7 =>
+          NSSRC <= '1';
+          NSLRS <= '1';
+          EWLYF <= flash;
+          EWSGC <= '1';
+    	when S8 =>
+          NSSRC <= '1';
+          NSLRS <= '1';
+          EWLYS <= '1';
+          EWSYC <= '1';
+    	when S9 =>
+          NSLRS <= '1';
+          NSSRC <= '1';
+          EWLRS <= '1';
+          EWSRC <= '1';
+    	when S10 =>
+          NSLRS <= '1';
+          NSSRC <= '1';
+          NSRGA <= '1';
+          EWLGS <= '1';
+          EWSRC <= '1';
+    	when S11 =>
+          NSLRS <= '1';
+          NSSRC <= '1';
+          NSRYA <= '1';
+          EWLYS <= '1';
+          EWSRC <= '1';
+    	When others =>
+          NSLRS <= '1';
+          NSSRC <= '1';
+          EWLRS <= '1';
+          EWSRC <= '1';
+	end case;
+	end process;
+
+
+end Behavioral;
